@@ -1,13 +1,20 @@
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# load .env from project root (if present)
+load_dotenv(BASE_DIR / '.env')
+
+# SECURITY: prefer environment-provided secret key
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dev-secret')
 
-DEBUG = True
+# DEBUG controlled by env (default False for safety)
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False').lower() in ('1', 'true', 'yes')
 
-ALLOWED_HOSTS = ['*']
+# ALLOWED_HOSTS: comma-separated
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 # When running behind a proxy (nginx) and accessing via http://localhost:8000,
 # include that origin so Django's CSRF Origin check accepts POSTs from the same

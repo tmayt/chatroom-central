@@ -17,6 +17,10 @@ staticfiles/
 # Env / secrets
 .env
 .env.*
+!.env.example
+
+# example env (safe to keep)
+# .env.example (tracked)
 
 # Python test / coverage
 .pytest_cache/
