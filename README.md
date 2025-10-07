@@ -5,16 +5,21 @@ Minimal Django + Celery scaffold that centralizes messages from site users and e
 This README documents the project's abilities, configuration options, how to run it (local or Docker Compose), where to find API docs, and developer tips.
 
 Table of contents
-- Features / Abilities
-- Architecture & components
-- Run (quick) — venv
-- Run with Docker Compose (recommended for development)
-- Configuration and environment variables
-- API docs (Swagger / ReDoc)
-- Authentication / Tokens
-- Development notes (build, tests, lint)
-- Troubleshooting & tips
-- Next steps / TODO
+<!-- top navigation -->
+**Quick links:**
+
+- [Features & Abilities](#features--abilities)
+- [Architecture & components](#architecture--components)
+- [Run (quick) — venv](#quick-run-locally-using-a-virtualenv)
+- [Run with Docker Compose](#run-with-docker-compose-recommended)
+- [Configuration & environment variables](#configuration--environment-variables)
+- [API docs (Swagger / ReDoc)](#api-documentation-swagger--redoc)
+- [Authentication](#authentication)
+- [Admin SPA](#admin-spa)
+- [Dev & Tests](#developer-notes-build--tests)
+- [Commands & Testing](#custom-django-commands--testing)
+- [Troubleshooting & tips](#troubleshooting--tips)
+
 
 Custom Django commands & testing
 --------------------------------
