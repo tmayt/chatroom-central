@@ -19,10 +19,11 @@ ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').sp
 # When running behind a proxy (nginx) and accessing via http://localhost:8000,
 # include that origin so Django's CSRF Origin check accepts POSTs from the same
 # host. Add any other dev origins as needed (e.g. frontend on :3000).
-CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:8000',
-    'http://127.0.0.1:8000',
-]
+CSRF_TRUSTED_ORIGINS = []
+
+for host in ALLOWED_HOSTS:
+    CSRF_TRUSTED_ORIGINS.append(f'https://{host}')
+    CSRF_TRUSTED_ORIGINS.append(f'http://{host}')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
