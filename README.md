@@ -183,6 +183,16 @@ Configuration is read from environment variables. The important ones include:
 
 If you run under Docker Compose the compose file contains sensible defaults for Postgres and Redis; override via an `.env` file or environment when deploying.
 
+IMPORTANT: fill your `.env`
+-------------------------
+Before running the app (locally or with Docker Compose) copy the example env file and fill in real values for secrets and DB credentials. Do NOT commit your `.env` file to version control.
+
+```bash
+cp .env.example .env
+# edit .env and set secure values (SECRET_KEY, DB credentials, etc.)
+```
+
+
 API documentation (Swagger / ReDoc)
 ---------------------------------
 The project exposes an OpenAPI schema and interactive docs using drf-spectacular. Start the web service, then open:
