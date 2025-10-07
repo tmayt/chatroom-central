@@ -58,7 +58,7 @@ services:
   nginx:
     image: nginx:1.25-alpine
     ports:
-      - '8000:80'
+      - "${NGX_EXTERNAL_PORT:-8000}:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - ./staticfiles:/usr/share/nginx/html/static:ro
