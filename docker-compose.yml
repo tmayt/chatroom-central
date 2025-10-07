@@ -1,0 +1,70 @@
+version: '3.8'
+services:
+  redis:
+    image: redis:7
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: chatroom
+      POSTGRES_USER: chatroom
+      POSTGRES_PASSWORD: chatroom
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  web:
+    build: .
+    command: gunicorn project.wsgi:application -b 0.0.0.0:8000
+    volumes:
+      - .:/app
+    # web service will be proxied by nginx; keep it internal
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - DJANGO_DB_ENGINE=django.db.backends.postgresql
+      - DJANGO_DB_NAME=chatroom
+      - DJANGO_DB_USER=chatroom
+      - DJANGO_DB_PASSWORD=chatroom
+      - DJANGO_DB_HOST=db
+      - DJANGO_DB_PORT=5432
+    depends_on:
+      - redis
+      - db
+
+  worker:
+    build: .
+    command: celery -A project worker -l info
+    volumes:
+      - .:/app
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - DJANGO_DB_ENGINE=django.db.backends.postgresql
+      - DJANGO_DB_NAME=chatroom
+      - DJANGO_DB_USER=chatroom
+      - DJANGO_DB_PASSWORD=chatroom
+      - DJANGO_DB_HOST=db
+      - DJANGO_DB_PORT=5432
+    depends_on:
+      - redis
+      - db
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    depends_on:
+      - web
+      - db
+
+  nginx:
+    image: nginx:1.25-alpine
+    ports:
+      - '8000:80'
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./staticfiles:/usr/share/nginx/html/static:ro
+    depends_on:
+      - web
+      - db
+
+volumes:
+  postgres_data:

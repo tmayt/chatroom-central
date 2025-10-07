@@ -1,0 +1,120 @@
+/* Small UI tweaks */
+body { background: #0f172a; color: #e6eef8; }
+.conversation-item:hover { background: rgba(255,255,255,0.03); }
+.card { background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border: 1px solid rgba(255,255,255,0.04); }
+.messages { background: linear-gradient(180deg, rgba(7,10,25,0.6), rgba(7,10,25,0.5)); border: 1px solid rgba(255,255,255,0.03); border-radius: 10px; }
+
+/* Chat bubble base */
+.bubble {
+	max-width: 70%;
+	padding: 10px 12px;
+	border-radius: 14px;
+	box-shadow: 0 1px 0 rgba(16,24,40,0.04);
+}
+.bubble-in { background: rgba(99,102,241,0.12); color: #e6eef8; border-top-left-radius: 6px; }
+.bubble-out { background: rgba(16,185,129,0.12); color: #e6eef8; border-top-right-radius: 6px; }
+
+/* Ensure spacing and word-wrap */
+.messages .bubble { word-wrap: break-word; white-space: pre-wrap; }
+
+/* Responsive tweaks: full width messages on small screens */
+@media (max-width: 767.98px) {
+	.bubble { max-width: 92%; }
+	.col-3 { display: none !important; }
+}
+
+/* Slight spacing for timestamps inside bubble */
+.bubble .small { font-size: 11px; opacity: 0.7; }
+
+/* Jump-to-bottom button */
+.jump-to-bottom{ position: sticky; bottom: 8px; z-index: 40; }
+
+/* Make body scroll use the app full height */
+html, body, #root { height: 100%; }
+
+/* Ensure conversation list or messages can scroll independently on small devices */
+.list-group.overflow-auto, .messages.overflow-auto { -webkit-overflow-scrolling: touch; }
+
+/* Fixes for components that still had dark text on dark background */
+/* Ensure default text is light */
+body, .card, .list-group-item, .list-group-item-action, .card-body, .card-title, .conversation-item {
+	color: #e6eef8 !important;
+}
+
+/* Muted text should be light but subdued */
+.text-muted { color: rgba(230,238,248,0.65) !important; }
+.small { color: rgba(230,238,248,0.75) !important; }
+
+/* List group items */
+.list-group-item { background: transparent; border: 0; }
+.list-group-item-action:focus, .list-group-item-action:hover { background: rgba(255,255,255,0.02); color: #ffffff !important; }
+.list-group-item.active { background: rgba(99,102,241,0.18) !important; color: #fff !important; border-color: rgba(99,102,241,0.25) !important; }
+
+/* Form controls (inputs, textarea) — dark background, light text */
+.form-control { background: rgba(255,255,255,0.03); color: #e6eef8; border: 1px solid rgba(255,255,255,0.06); }
+.form-control:focus { background: rgba(255,255,255,0.04); color: #e6eef8; box-shadow: 0 0 0 0.15rem rgba(99,102,241,0.12); border-color: rgba(99,102,241,0.3); }
+.form-control::placeholder { color: rgba(230,238,248,0.5); }
+
+/* Buttons: adjust primary/secondary contrast */
+.btn-primary { background-color: #6366f1; border-color: #4f46e5; color: #fff; }
+.btn-outline-secondary { color: #e6eef8; border-color: rgba(255,255,255,0.06); }
+.btn-outline-secondary:hover { background: rgba(255,255,255,0.02); }
+
+/* Ensure card headings are readable */
+.card-title, .card-subtitle { color: #f1f5ff; }
+
+/* Make text-truncate readable */
+.text-truncate { color: #e6eef8 !important; }
+
+/* Custom scrollbar for modern look (scoped to conversation list and messages) */
+:root {
+	--scroll-thumb: rgba(99,102,241,0.28);
+	--scroll-thumb-hover: rgba(99,102,241,0.44);
+	--scroll-track: rgba(255,255,255,0.02);
+	--scroll-border: rgba(15,23,42,0.6);
+}
+
+/* WebKit browsers (Chrome, Edge, Safari) */
+.list-group.overflow-auto::-webkit-scrollbar,
+.messages.overflow-auto::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+
+.list-group.overflow-auto::-webkit-scrollbar-track,
+.messages.overflow-auto::-webkit-scrollbar-track {
+	background: transparent;
+	border-radius: 10px;
+}
+
+.list-group.overflow-auto::-webkit-scrollbar-thumb,
+.messages.overflow-auto::-webkit-scrollbar-thumb {
+	background-color: var(--scroll-thumb);
+	border-radius: 10px;
+	border: 2px solid var(--scroll-border);
+}
+
+.list-group.overflow-auto::-webkit-scrollbar-thumb:hover,
+.messages.overflow-auto::-webkit-scrollbar-thumb:hover {
+	background-color: var(--scroll-thumb-hover);
+}
+
+.list-group.overflow-auto::-webkit-scrollbar-corner,
+.messages.overflow-auto::-webkit-scrollbar-corner {
+	background: transparent;
+}
+
+/* Firefox */
+.list-group.overflow-auto,
+.messages.overflow-auto {
+	scrollbar-width: thin;
+	scrollbar-color: var(--scroll-thumb) transparent;
+}
+
+/* Optional: make the scrollbar more visible when hovering the container */
+.list-group.overflow-auto:hover::-webkit-scrollbar-thumb,
+.messages.overflow-auto:hover::-webkit-scrollbar-thumb {
+	background-color: var(--scroll-thumb-hover);
+}
+
+
