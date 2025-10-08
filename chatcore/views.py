@@ -1,5 +1,3 @@
-import hmac
-import hashlib
 from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -134,7 +132,7 @@ class IncomingWebhookView(APIView):
         if thread_id:
             conv = Conversation.objects.filter(source=source, metadata__thread_id=thread_id).first()
         if not conv:
-            conv = Conversation.objects.create(source=source, external_contact=contact)
+            conv = Conversation.objects.create(source=source, metadata=normalized , external_contact=contact)
 
         Message.objects.create(
             conversation=conv,
