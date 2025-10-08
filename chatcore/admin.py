@@ -53,3 +53,35 @@ class DeliveryReceiptAdmin(admin.ModelAdmin):
 @admin.register(WebhookEvent)
 class WebhookEventAdmin(admin.ModelAdmin):
     list_display = ('id', 'source', 'processed', 'created_at')
+
+@admin.register(Message)
+class MessageAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "conversation",
+        "direction",
+        "sender_name",
+        "source",
+        "status",
+        "short_content",
+        "created_at",
+    )
+    list_filter = (
+        "direction",
+        "status",
+        "source",
+        "created_at",
+    )
+    search_fields = (
+        "content",
+        "sender_name",
+        "external_message_id",
+        "conversation__id",
+    )
+    readonly_fields = ("created_at", "updated_at")
+    autocomplete_fields = ("conversation", "sender_internal_user", "source")
+
+    def short_content(self, obj):
+        return (obj.content[:60] + "...") if obj.content and len(obj.content) > 60 else obj.content
+    short_content.short_description = "Content"
+
