@@ -196,7 +196,7 @@ export default function App(){
 
                   {/* Jump-to-bottom button shown when user scrolled up */}
                   {isScrolledUp && (
-                    <div className="d-flex justify-content-end mt-2">
+                    <div className="d-flex justify-content-end my-2">
                       <button className="btn btn-sm btn-secondary jump-to-bottom" onClick={() => { if(messagesRef.current){ messagesRef.current.scrollTo({ top: messagesRef.current.scrollHeight, behavior: 'smooth' }); setIsScrolledUp(false) } }}>
                         Jump to latest
                       </button>
