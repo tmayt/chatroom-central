@@ -83,16 +83,13 @@ class ReplyCreateView(APIView):
 
 
 def verify_signature(secret: str, body: bytes, header_signature: str) -> bool:
+    """
+    Simple secret check — no hashing or HMAC.
+    Expect header like:  X-Signature: <secret>
+    """
     if not secret:
         return True
-    try:
-        scheme, sig = header_signature.split('=', 1)
-    except Exception:
-        return False
-    if scheme.lower() != 'sha256':
-        return False
-    mac = hmac.new(secret.encode(), body, hashlib.sha256)
-    return hmac.compare_digest(mac.hexdigest(), sig)
+    return header_signature.strip() == secret.strip()
 
 
 def normalize_payload(data: dict) -> dict:
