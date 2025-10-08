@@ -14,6 +14,7 @@ def send_outbound_message(self, message_id):
     # build a simple payload
     payload = {
         'conversation_id': str(msg.conversation_id),
+        "external_message_id": msg.external_message_id,
         'external_user_id': msg.conversation.external_contact.external_id if msg.conversation.external_contact else None,
         'content': msg.content,
         'message_id': str(msg.id),
