@@ -64,7 +64,12 @@ body, .card, .list-group-item, .list-group-item-action, .card-body, .card-title,
 .card-title, .card-subtitle { color: #f1f5ff; }
 
 /* Make text-truncate readable */
-.text-truncate { color: #e6eef8 !important; }
+.text-truncate {
+    color: #e6eef8 !important;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
 
 /* Custom scrollbar for modern look (scoped to conversation list and messages) */
 :root {
