@@ -69,6 +69,7 @@ body, .card, .list-group-item, .list-group-item-action, .card-body, .card-title,
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+	max-width: 19rem;
 }
 
 /* Custom scrollbar for modern look (scoped to conversation list and messages) */
