@@ -74,6 +74,7 @@ class Message(models.Model):
     attachments = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    seen = models.BooleanField(default=False)
 
     class Meta:
         constraints = [

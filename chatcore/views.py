@@ -169,6 +169,18 @@ class MockProviderReceiveView(APIView):
         return Response({'received': True}, status=status.HTTP_200_OK)
 
 
+
+class MessageSeenView(APIView):
+    """Mark a message as seen (POST)."""
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, message_id):
+        msg = get_object_or_404(Message, pk=message_id)
+        if not msg.seen:
+            msg.seen = True
+            msg.save(update_fields=['seen'])
+        return DRFResponse({'id': str(msg.id), 'seen': msg.seen})
+
 class ConversationDetailView(generics.RetrieveAPIView):
     """Return a conversation including its messages (read-only)."""
     queryset = Conversation.objects.all().select_related('external_contact', 'source')

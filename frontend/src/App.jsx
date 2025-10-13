@@ -182,16 +182,30 @@ export default function App(){
                   <div ref={messagesRef} onScroll={handleMessagesScroll} className="messages overflow-auto mb-3 p-3 flex-grow-1" style={{minHeight: 0, position: 'relative'}}>
                     {messages.length===0 ? (
                       <div className="text-center text-muted">No messages yet</div>
-                    ) : messages.map(m=> (
-                      <div key={m.id} className={`d-flex mb-2 ${m.direction==='IN' ? 'justify-content-start' : 'justify-content-end'}`}>
-                        <div className={`bubble ${m.direction==='IN' ? 'bubble-in' : 'bubble-out'}`}>
-                          <div className="small text-muted">
-                            {m.sender_name || (m.direction==='OUT' ? 'Admin' : selected.external_contact)} • {new Date(m.created_at).toLocaleString()}
+                    ) : messages.map(m=> {
+                      // Style unseen messages with a border or background
+                      const bubbleClass = `bubble ${m.direction==='IN' ? 'bubble-in' : 'bubble-out'}${m.seen === false ? ' bubble-unseen' : ''}`;
+                      return (
+                        <div key={m.id} className={`d-flex mb-2 ${m.direction==='IN' ? 'justify-content-start' : 'justify-content-end'}`}
+                          onMouseEnter={async () => {
+                            if(m.seen === false && m.direction === 'IN'){
+                              // Mark as seen in backend
+                              const headers = {'Content-Type':'application/json'};
+                              if(token) headers['Authorization'] = `Token ${token}`;
+                              await fetch(`/api/v1/messages/${m.id}/seen/`, {method:'POST', headers});
+                              // Optimistically update UI
+                              setMessages(msgs => msgs.map(msg => msg.id === m.id ? {...msg, seen: true} : msg));
+                            }
+                          }}>
+                          <div className={bubbleClass}>
+                            <div className="small text-muted">
+                              {m.sender_name || (m.direction==='OUT' ? 'Admin' : selected.external_contact)}  {new Date(m.created_at).toLocaleString()}
+                            </div>
+                            <div className="mt-1">{m.content}</div>
                           </div>
-                          <div className="mt-1">{m.content}</div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Jump-to-bottom button shown when user scrolled up */}

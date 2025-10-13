@@ -14,6 +14,13 @@ body { background: #0f172a; color: #e6eef8; }
 .bubble-in { background: rgba(99,102,241,0.12); color: #e6eef8; border-top-left-radius: 6px; }
 .bubble-out { background: rgba(16,185,129,0.12); color: #e6eef8; border-top-right-radius: 6px; }
 
+/* Highlight unseen messages */
+.bubble-unseen {
+	box-shadow: 0 0 0 2px #f59e42, 0 1px 0 rgba(16,24,40,0.04);
+	background: rgba(245,158,66,0.18);
+	color: #fff;
+}
+
 /* Ensure spacing and word-wrap */
 .messages .bubble { word-wrap: break-word; white-space: pre-wrap; }
 

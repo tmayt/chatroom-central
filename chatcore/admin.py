@@ -9,7 +9,7 @@ from .models import Source, ExternalContact, Conversation, Message, DeliveryRece
 @admin.register(Source)
 class SourceAdmin(admin.ModelAdmin):
     list_display = ('slug', 'display_name', 'is_active')
-
+    search_fields = ('slug', 'display_name')
 
 @admin.register(ExternalContact)
 class ExternalContactAdmin(admin.ModelAdmin):
@@ -27,7 +27,8 @@ class MessageInline(admin.TabularInline):
 class ConversationAdmin(admin.ModelAdmin):
     list_display = ('id', 'source', 'external_contact', 'is_closed', 'updated_at')
     inlines = [MessageInline]
-
+    search_fields = ('id__exact', 'title', 'external_contact__display_name', 'external_contact__external_id')
+    
     def get_urls(self):
         urls = super().get_urls()
         my_urls = [
