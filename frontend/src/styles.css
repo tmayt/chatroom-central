@@ -36,6 +36,9 @@ body { background: #0f172a; color: #e6eef8; }
 /* Slight spacing for timestamps inside bubble */
 .bubble .small { font-size: 11px; opacity: 0.7; }
 
+/* smaller message content for compact bubbles */
+.message-content-sm { font-size: 13px; line-height: 1.25; }
+
 /* Jump-to-bottom button */
 .jump-to-bottom{ position: sticky; bottom: 8px; z-index: 40; }
 
@@ -79,7 +82,7 @@ body, .card, .list-group-item, .list-group-item-action, .card-body, .card-title,
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-	max-width: 15rem;
+	max-width: 10rem;
 }
 
 /* Custom scrollbar for modern look (scoped to conversation list and messages) */
@@ -194,7 +197,7 @@ body, .card, .list-group-item, .list-group-item-action, .card-body, .card-title,
 
 /* On medium+ screens, show the offcanvas content as a regular column */
 @media (min-width: 768px) {
-	.app-offcanvas { position: static; transform: none; width: auto; max-width: none; border-right: none; top: auto; bottom: auto; }
+	.app-offcanvas { position: static; transform: none; width: auto; max-width: none; border-right: none; top: auto; bottom: auto; height: 95dvh; }
 	.app-offcanvas-backdrop { display: none; }
 }
 
@@ -214,7 +217,7 @@ body, .card, .list-group-item, .list-group-item-action, .card-body, .card-title,
 	position: fixed;
 	top: 12px;
 	left: 12px;
-	z-index: 1100;
+	z-index: 1050;
 }
 
 @media (min-width: 768px) {
@@ -223,7 +226,7 @@ body, .card, .list-group-item, .list-group-item-action, .card-body, .card-title,
 
 /* give the small toggle a dark background and visible border */
 .offcanvas-toggle-btn {
-	background-color: #071228; /* match offcanvas deep blue */
+	background-color: #0712286b; /* match offcanvas deep blue */
 	color: #e6eef8;
 	border: 1px solid rgba(255,255,255,0.06);
 }
@@ -231,5 +234,6 @@ body, .card, .list-group-item, .list-group-item-action, .card-body, .card-title,
 	background-color: rgba(255,255,255,0.02);
 	color: #ffffff;
 }
-
-
+.card{
+	padding: 0.2rem !important;
+}

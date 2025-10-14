@@ -173,7 +173,7 @@ export default function App(){
   }
 
   return (
-    <div className="container-fluid vh-100 d-flex flex-column p-3">
+    <div className="container-fluid vh-100 d-flex flex-column">
       <div className="row g-3 flex-grow-1">
         <div className="col-12 d-flex d-md-none mb-2 offcanvas-toggle-parent">
           <button className="btn btn-outline-secondary offcanvas-toggle-btn" onClick={()=>setOffcanvasOpen(true)}>☰</button>
@@ -181,7 +181,7 @@ export default function App(){
         <div className={`col-12 col-md-4 col-lg-3 d-flex`}>
           {/* Offcanvas wrapper: on small screens this becomes a slide-in panel */}
           <div className={`app-offcanvas ${offcanvasOpen ? 'show' : ''}`}>
-            <div className="card flex-grow-1 d-flex flex-column bg-dark" style={{maxHeight: '100dvh'}}>
+            <div className="card flex-grow-1 d-flex flex-column bg-dark" style={{maxHeight: '95dvh'}}>
             <div className="card-body d-flex flex-column" style={{minHeight: 0}}>
               <h5 className="card-title">Conversations</h5>
               <div className="mb-2">
@@ -206,8 +206,8 @@ export default function App(){
           {/* backdrop for offcanvas on mobile */}
           <div className={`app-offcanvas-backdrop ${offcanvasOpen ? 'show' : ''}`} onClick={()=>setOffcanvasOpen(false)} />
         </div>
-        <div className="col-12 col-md-8 col-lg-9 d-flex flex-column">
-          <div className="card flex-grow-1 d-flex flex-column bg-dark" style={{maxHeight: '100dvh'}}>
+        <div className="col-12 col-md-8 col-lg-9 d-flex flex-column m-0">
+          <div className="card flex-grow-1 d-flex flex-column bg-dark" style={{maxHeight: '95dvh'}}>
             <div className="card-body d-flex flex-column" style={{minHeight: 0}}>
               {selected ? (
                 <>
@@ -231,7 +231,7 @@ export default function App(){
                             <div className="small text-muted">
                               {m.sender_name || (m.direction==='OUT' ? 'Admin' : selected.external_contact)}  {new Date(m.created_at).toLocaleString()}
                             </div>
-                            <div className="mt-1">{m.content}</div>
+                            <div className="mt-1 message-content-sm">{m.content}</div>
                           </div>
                         </div>
                       );
