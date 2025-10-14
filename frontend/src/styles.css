@@ -197,7 +197,7 @@ body, .card, .list-group-item, .list-group-item-action, .card-body, .card-title,
 
 /* On medium+ screens, show the offcanvas content as a regular column */
 @media (min-width: 768px) {
-	.app-offcanvas { position: static; transform: none; width: auto; max-width: none; border-right: none; top: auto; bottom: auto; height: 95dvh; }
+	.app-offcanvas { position: static; transform: none; width: 100%; max-width: none; border-right: none; top: auto; bottom: auto; height: 100dvh; }
 	.app-offcanvas-backdrop { display: none; }
 }
 
