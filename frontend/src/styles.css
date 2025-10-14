@@ -136,10 +136,10 @@ body, .card, .list-group-item, .list-group-item-action, .card-body, .card-title,
 /* Simple app offcanvas for conversation list (mobile-first) */
 .app-offcanvas {
 	position: fixed;
-	top: 56px; /* account for header spacing */
+	top: 0; /* full page height */
 	left: 0;
-	bottom: 0;
-	width: 300px;
+	height: 100vh;
+	width: 315px;
 	max-width: 86%;
 	background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
 	border-right: 1px solid rgba(255,255,255,0.04);
@@ -199,6 +199,7 @@ body, .card, .list-group-item, .list-group-item-action, .card-body, .card-title,
 }
 
 /* Small toggle button style */
+/* Small toggle button style */
 .offcanvas-toggle-btn { padding: 0.25rem 0.5rem; font-size: 0.95rem; line-height: 1; }
 /* ensure the small toggle has a compact height and centers its content */
 .offcanvas-toggle-btn {
@@ -218,6 +219,17 @@ body, .card, .list-group-item, .list-group-item-action, .card-body, .card-title,
 
 @media (min-width: 768px) {
 	.offcanvas-toggle-parent { position: static; top: auto; left: auto; z-index: auto; }
+}
+
+/* give the small toggle a dark background and visible border */
+.offcanvas-toggle-btn {
+	background-color: #071228; /* match offcanvas deep blue */
+	color: #e6eef8;
+	border: 1px solid rgba(255,255,255,0.06);
+}
+.offcanvas-toggle-btn:hover, .offcanvas-toggle-btn:focus {
+	background-color: rgba(255,255,255,0.02);
+	color: #ffffff;
 }
 
 

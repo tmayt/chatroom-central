@@ -31,6 +31,9 @@ export default function App(){
       setLoadingConversations(false)
     }
     load()
+    // poll every 10s
+    const iv = setInterval(load, 10000)
+    return () => clearInterval(iv)
   }, [token])
 
   useEffect(()=>{
@@ -45,6 +48,9 @@ export default function App(){
       }catch(e){ setMessages([]) }
     }
     loadDetail()
+    // poll messages every 10s for the selected conversation
+    const iv = setInterval(loadDetail, 10000)
+    return () => clearInterval(iv)
   }, [selected, token])
 
   // When messages change (loaded), mark unseen inbound messages as seen
@@ -234,7 +240,7 @@ export default function App(){
 
                   {/* Jump-to-bottom button shown when user scrolled up */}
                   {isScrolledUp && (
-                    <div className="d-flex justify-content-end my-2">
+                    <div className="d-flex justify-content-end mb-3">
                       <button className="btn btn-sm btn-secondary jump-to-bottom" onClick={() => { if(messagesRef.current){ messagesRef.current.scrollTo({ top: messagesRef.current.scrollHeight, behavior: 'smooth' }); setIsScrolledUp(false) } }}>
                         Jump to latest
                       </button>
