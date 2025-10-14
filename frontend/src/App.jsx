@@ -45,6 +45,30 @@ export default function App(){
     loadDetail()
   }, [selected, token])
 
+  // When messages change (loaded), mark unseen inbound messages as seen
+  useEffect(()=>{
+    if(!messages || messages.length===0) return
+  const unseenInbound = messages.filter(m => m.direction === 'IN' && m.seen !== true)
+    if(unseenInbound.length === 0) return
+
+    const markAllSeen = async () => {
+      const headers = {'Content-Type':'application/json'}
+      if(token) headers['Authorization'] = `Token ${token}`
+      try{
+        // send requests in parallel
+        await Promise.all(unseenInbound.map(m => fetch(`/api/v1/messages/${m.id}/seen/`, { method: 'POST', headers })))
+        // optimistically update UI
+  setMessages(msgs => msgs.map(msg => (msg.direction === 'IN' ? {...msg, seen: true} : msg)))
+      }catch(e){
+        // ignore errors for now
+      }
+    }
+
+    // mark after a short delay so UI can render first
+    const t = setTimeout(markAllSeen, 250)
+    return () => clearTimeout(t)
+  }, [messages, token])
+
   const reply = async ()=>{
     if(!selected) return
     const headers = {'Content-Type':'application/json'}
@@ -184,19 +208,9 @@ export default function App(){
                       <div className="text-center text-muted">No messages yet</div>
                     ) : messages.map(m=> {
                       // Style unseen messages with a border or background
-                      const bubbleClass = `bubble ${m.direction==='IN' ? 'bubble-in' : 'bubble-out'}${m.seen === false ? ' bubble-unseen' : ''}`;
+                      const bubbleClass = `bubble ${m.direction==='IN' ? 'bubble-in' : 'bubble-out'}${m.direction==='IN' && m.seen !== true ? ' bubble-unseen' : ''}`;
                       return (
-                        <div key={m.id} className={`d-flex mb-2 ${m.direction==='IN' ? 'justify-content-start' : 'justify-content-end'}`}
-                          onMouseEnter={async () => {
-                            if(m.seen === false && m.direction === 'IN'){
-                              // Mark as seen in backend
-                              const headers = {'Content-Type':'application/json'};
-                              if(token) headers['Authorization'] = `Token ${token}`;
-                              await fetch(`/api/v1/messages/${m.id}/seen/`, {method:'POST', headers});
-                              // Optimistically update UI
-                              setMessages(msgs => msgs.map(msg => msg.id === m.id ? {...msg, seen: true} : msg));
-                            }
-                          }}>
+                        <div key={m.id} className={`d-flex mb-2 ${m.direction==='IN' ? 'justify-content-start' : 'justify-content-end'}`}>
                           <div className={bubbleClass}>
                             <div className="small text-muted">
                               {m.sender_name || (m.direction==='OUT' ? 'Admin' : selected.external_contact)}  {new Date(m.created_at).toLocaleString()}

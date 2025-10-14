@@ -9,11 +9,16 @@ class MessageSerializer(serializers.ModelSerializer):
 
 
 class ConversationSerializer(serializers.ModelSerializer):
-    messages = MessageSerializer(many=True, read_only=True)
+    # Return messages ordered by created_at so consumers always get chronological order
+    messages = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
         fields = '__all__'
+
+    def get_messages(self, obj):
+        qs = obj.messages.order_by('created_at')
+        return MessageSerializer(qs, many=True).data
 
 
 class WebhookSerializer(serializers.Serializer):
