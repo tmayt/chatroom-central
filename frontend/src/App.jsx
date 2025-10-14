@@ -181,7 +181,7 @@ export default function App(){
         <div className={`col-12 col-md-4 col-lg-3 d-flex`}>
           {/* Offcanvas wrapper: on small screens this becomes a slide-in panel */}
           <div className={`app-offcanvas ${offcanvasOpen ? 'show' : ''}`}>
-            <div className="card flex-grow-1 d-flex flex-column bg-dark" style={{maxHeight: '100dvh'}}>
+            <div className="card flex-grow-1 d-flex flex-column bg-dark" style={{Height: '100dvh'}}>
             <div className="card-body d-flex flex-column" style={{minHeight: 0}}>
               <h5 className="card-title">Conversations</h5>
               <div className="mb-2">
@@ -207,7 +207,7 @@ export default function App(){
           <div className={`app-offcanvas-backdrop ${offcanvasOpen ? 'show' : ''}`} onClick={()=>setOffcanvasOpen(false)} />
         </div>
         <div className="col-12 col-md-8 col-lg-9 d-flex flex-column m-0">
-          <div className="card flex-grow-1 d-flex flex-column bg-dark" style={{maxHeight: '100dvh'}}>
+          <div className="card flex-grow-1 d-flex flex-column bg-dark" style={{maxHeight: '100dvh', marginTop: '15px'}}>
             <div className="card-body d-flex flex-column" style={{minHeight: 0}}>
               {selected ? (
                 <>
