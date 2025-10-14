@@ -207,7 +207,7 @@ export default function App(){
           <div className={`app-offcanvas-backdrop ${offcanvasOpen ? 'show' : ''}`} onClick={()=>setOffcanvasOpen(false)} />
         </div>
         <div className="col-12 col-md-8 col-lg-9 d-flex flex-column m-0">
-          <div className="card flex-grow-1 d-flex flex-column bg-dark" style={{maxHeight: '95dvh'}}>
+          <div className="card flex-grow-1 d-flex flex-column bg-dark" style={{maxHeight: '100dvh'}}>
             <div className="card-body d-flex flex-column" style={{minHeight: 0}}>
               {selected ? (
                 <>
