@@ -144,7 +144,6 @@ body, .card, .list-group-item, .list-group-item-action, .card-body, .card-title,
 	height: 100vh;
 	width: 315px;
 	max-width: 86%;
-	background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
 	border-right: 1px solid rgba(255,255,255,0.04);
 	transform: translateX(-100%);
 	transition: transform 220ms ease-in-out;
@@ -158,7 +157,6 @@ body, .card, .list-group-item, .list-group-item-action, .card-body, .card-title,
 
 /* Stronger/offcanvas-specific background for better contrast */
 .app-offcanvas {
-	background-color: #071228; /* deep blue base */
 	color: #e6eef8;
 }
 
