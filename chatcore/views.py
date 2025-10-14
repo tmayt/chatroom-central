@@ -5,7 +5,7 @@ from rest_framework import status
 
 from .models import Source, WebhookEvent, ExternalContact, Conversation, Message
 from .serializers import WebhookSerializer, ConversationSerializer
-from django.db.models import Max, DateTimeField
+from django.db.models import Max, DateTimeField, Count, Q
 from django.db.models.functions import Coalesce
 from rest_framework import generics
 from rest_framework.permissions import IsAdminUser, BasePermission
@@ -23,7 +23,10 @@ class ConversationListView(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         qs = self.get_queryset().select_related('external_contact', 'source')
         # annotate with latest message time; if no messages exist, use conversation.updated_at
-        qs = qs.annotate(last_msg_time=Coalesce(Max('messages__created_at'), 'updated_at', output_field=DateTimeField()))
+        qs = qs.annotate(
+            last_msg_time=Coalesce(Max('messages__created_at'), 'updated_at', output_field=DateTimeField()),
+            unseen_count=Count('messages', filter=Q(messages__direction='IN') & (~Q(messages__seen=True)))
+        )
         qs = qs.order_by('-last_msg_time')
         # if ?mine=1 is provided, filter to conversations where the requesting
         # user is a participant. This enables a per-user chatroom view.
@@ -39,6 +42,7 @@ class ConversationListView(generics.ListAPIView):
                 'external_contact': c.external_contact.external_id if c.external_contact else None,
                 'last_message': last.content if last else None,
                 'updated_at': c.updated_at,
+                'has_unseen': bool(getattr(c, 'unseen_count', 0)),
             })
         return DRFResponse(data)
 

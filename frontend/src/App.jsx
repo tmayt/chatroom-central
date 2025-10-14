@@ -169,7 +169,7 @@ export default function App(){
   return (
     <div className="container-fluid vh-100 d-flex flex-column p-3">
       <div className="row g-3 flex-grow-1">
-        <div className="col-12 d-flex d-md-none mb-2">
+        <div className="col-12 d-flex d-md-none mb-2 offcanvas-toggle-parent">
           <button className="btn btn-outline-secondary offcanvas-toggle-btn" onClick={()=>setOffcanvasOpen(true)}>☰</button>
         </div>
         <div className={`col-12 col-md-4 col-lg-3 d-flex`}>
@@ -187,7 +187,7 @@ export default function App(){
                 ) : conversations.length===0 ? (
                   <div className="text-center text-muted small py-3">No conversations</div>
                 ) : conversations.map(c=> (
-                  <button key={c.id} className={`list-group-item list-group-item-action d-flex flex-column align-items-start ${selected && selected.id===c.id ? 'active' : ''} conversation-item`} onClick={()=>setSelected(c)}>
+                  <button key={c.id} className={`list-group-item list-group-item-action d-flex flex-column align-items-start ${selected && selected.id===c.id ? 'active' : ''} conversation-item ${c.has_unseen ? 'has-unseen' : ''}`} onClick={()=>{ setSelected(c); setOffcanvasOpen(false) }}>
                     <div className="fw-semibold">{c.external_contact || 'Unknown'}</div>
                     <div className="text-truncate small text-muted">{c.last_message}</div>
                     <div className="small text-muted mt-1">{new Date(c.updated_at).toLocaleString()}</div>
