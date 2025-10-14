@@ -5,6 +5,8 @@ from rest_framework import status
 
 from .models import Source, WebhookEvent, ExternalContact, Conversation, Message
 from .serializers import WebhookSerializer, ConversationSerializer
+from django.db.models import Max, DateTimeField
+from django.db.models.functions import Coalesce
 from rest_framework import generics
 from rest_framework.permissions import IsAdminUser, BasePermission
 from django.conf import settings
@@ -14,11 +16,15 @@ from rest_framework import status as drf_status
 
 
 class ConversationListView(generics.ListAPIView):
-    queryset = Conversation.objects.all().order_by('-updated_at')
+    # We'll annotate with the latest message timestamp and order by that (newest first).
+    queryset = Conversation.objects.all()
     serializer_class = None  # we'll return simplified JSON
 
     def list(self, request, *args, **kwargs):
         qs = self.get_queryset().select_related('external_contact', 'source')
+        # annotate with latest message time; if no messages exist, use conversation.updated_at
+        qs = qs.annotate(last_msg_time=Coalesce(Max('messages__created_at'), 'updated_at', output_field=DateTimeField()))
+        qs = qs.order_by('-last_msg_time')
         # if ?mine=1 is provided, filter to conversations where the requesting
         # user is a participant. This enables a per-user chatroom view.
         if request.query_params.get('mine') in ('1', 'true', 'True') and request.user.is_authenticated:

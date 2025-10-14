@@ -33,7 +33,7 @@ Inside a Django app (for example `chatcore`) create the directories:
 chatcore/management/commands/
 ```
 
-Add a Python file with the command name, e.g. `chatcore/management/commands/create_sample_data.py`.
+Add a Python file with the command name, e.g. `chatcore/management/commands/generate_sample_data.py`.
 
 Example minimal command (paste into that file):
 
@@ -57,13 +57,13 @@ Once placed in the correct path, Django will auto-discover the command.
 Run it locally (venv):
 
 ```bash
-python manage.py create_sample_data --count 10
+python manage.py generate_sample_data --count 10
 ```
 
 Run it inside Docker Compose:
 
 ```bash
-docker compose exec web python manage.py create_sample_data --count 10
+docker compose exec web python manage.py generate_sample_data --count 10
 ```
 
 2) Run tests
@@ -107,7 +107,7 @@ docker compose exec web python manage.py test
 
 - For fast feedback during frontend changes, run the Vite dev server locally (`cd frontend && npm run dev`) instead of rebuilding the Docker image on every change.
 
-- If you want, I can add an example management command file to the repository (for example `create_sample_data`) and a couple of example pytest tests to demonstrate the pattern — say yes and I will create them.
+- If you want, I can add an example management command file to the repository (for example `generate_sample_data`) and a couple of example pytest tests to demonstrate the pattern — say yes and I will create them.
 Features & Abilities
 --------------------
 - Accept messages from site users and external chat systems (webhooks).

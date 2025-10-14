@@ -130,4 +130,50 @@ body, .card, .list-group-item, .list-group-item-action, .card-body, .card-title,
 	background-color: var(--scroll-thumb-hover);
 }
 
+/* Simple app offcanvas for conversation list (mobile-first) */
+.app-offcanvas {
+	position: fixed;
+	top: 56px; /* account for header spacing */
+	left: 0;
+	bottom: 0;
+	width: 300px;
+	max-width: 86%;
+	background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+	border-right: 1px solid rgba(255,255,255,0.04);
+	transform: translateX(-100%);
+	transition: transform 220ms ease-in-out;
+	z-index: 1050;
+	overflow: auto;
+}
+.app-offcanvas.show { transform: translateX(0); }
+
+/* Slightly darker background when shown to better separate from content */
+.app-offcanvas.show { background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015)); }
+
+/* overlay when offcanvas is open (mobile) */
+.app-offcanvas-backdrop {
+	position: fixed;
+	inset: 0;
+	background: rgba(0,0,0,0.45);
+	z-index: 1040;
+	display: none;
+}
+.app-offcanvas-backdrop.show { display: block; }
+
+/* On medium+ screens, show the offcanvas content as a regular column */
+@media (min-width: 768px) {
+	.app-offcanvas { position: static; transform: none; width: auto; max-width: none; border-right: none; top: auto; bottom: auto; }
+	.app-offcanvas-backdrop { display: none; }
+}
+
+/* Small toggle button style */
+.offcanvas-toggle-btn { padding: 0.25rem 0.5rem; font-size: 0.95rem; line-height: 1; }
+/* ensure the small toggle has a compact height and centers its content */
+.offcanvas-toggle-btn {
+	height: fit-content;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
 

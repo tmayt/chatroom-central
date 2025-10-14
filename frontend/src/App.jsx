@@ -3,6 +3,8 @@ import 'bootstrap/dist/css/bootstrap.min.css'
 import './styles.css'
 
 export default function App(){
+  const [offcanvasOpen, setOffcanvasOpen] = useState(false)
+
   const [conversations, setConversations] = useState([])
   const [selected, setSelected] = useState(null)
   const [text, setText] = useState('')
@@ -64,8 +66,8 @@ export default function App(){
       }
     }
 
-    // mark after a short delay so UI can render first
-    const t = setTimeout(markAllSeen, 250)
+  // mark after a short delay so UI can render first; use 3s to ensure user had time to view
+  const t = setTimeout(markAllSeen, 3000)
     return () => clearTimeout(t)
   }, [messages, token])
 
@@ -167,8 +169,13 @@ export default function App(){
   return (
     <div className="container-fluid vh-100 d-flex flex-column p-3">
       <div className="row g-3 flex-grow-1">
-        <div className="col-12 col-md-4 col-lg-3 d-flex">
-          <div className="card flex-grow-1 d-flex flex-column" style={{maxHeight: 'calc(100vh - 48px)'}}>
+        <div className="col-12 d-flex d-md-none mb-2">
+          <button className="btn btn-outline-secondary offcanvas-toggle-btn" onClick={()=>setOffcanvasOpen(true)}>☰</button>
+        </div>
+        <div className={`col-12 col-md-4 col-lg-3 d-flex`}>
+          {/* Offcanvas wrapper: on small screens this becomes a slide-in panel */}
+          <div className={`app-offcanvas ${offcanvasOpen ? 'show' : ''}`}>
+            <div className="card flex-grow-1 d-flex flex-column" style={{maxHeight: 'calc(100vh - 48px)'}}>
             <div className="card-body d-flex flex-column" style={{minHeight: 0}}>
               <h5 className="card-title">Conversations</h5>
               <div className="mb-2">
@@ -189,6 +196,9 @@ export default function App(){
               </div>
             </div>
           </div>
+          </div>
+          {/* backdrop for offcanvas on mobile */}
+          <div className={`app-offcanvas-backdrop ${offcanvasOpen ? 'show' : ''}`} onClick={()=>setOffcanvasOpen(false)} />
         </div>
         <div className="col-12 col-md-8 col-lg-9 d-flex flex-column">
           <div className="card flex-grow-1 d-flex flex-column" style={{maxHeight: 'calc(100vh - 48px)'}}>
