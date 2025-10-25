@@ -9,6 +9,7 @@ services:
       POSTGRES_DB: chatroom
       POSTGRES_USER: chatroom
       POSTGRES_PASSWORD: chatroom
+    restart: "always"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -17,7 +18,7 @@ services:
     command: gunicorn project.wsgi:application -b 0.0.0.0:8000
     volumes:
       - .:/app
-    # web service will be proxied by nginx; keep it internal
+    restart: "always"
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - DJANGO_DB_ENGINE=django.db.backends.postgresql
@@ -35,6 +36,7 @@ services:
     command: celery -A project worker -l info
     volumes:
       - .:/app
+    restart: "always"
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - DJANGO_DB_ENGINE=django.db.backends.postgresql
@@ -51,6 +53,7 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+    restart: "always"
     depends_on:
       - web
       - db
@@ -65,6 +68,7 @@ services:
     depends_on:
       - web
       - db
+    restart: "always"
 
 volumes:
   postgres_data:
