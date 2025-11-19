@@ -2,6 +2,7 @@ version: '3.8'
 services:
   redis:
     image: redis:7
+    restart: "always"
 
   db:
     image: postgres:15-alpine
