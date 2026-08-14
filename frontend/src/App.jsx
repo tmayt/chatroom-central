@@ -84,6 +84,7 @@ export default function App() {
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState('')
   const [wsStatus, setWsStatus] = useState('disconnected')
+  const [error, setError] = useState('')
   const [showJumpButton, setShowJumpButton] = useState(false)
 
   const messagesRef = useRef(null)
