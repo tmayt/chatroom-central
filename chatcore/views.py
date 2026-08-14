@@ -5,67 +5,33 @@ from rest_framework import status
 
 from .models import Source, WebhookEvent, ExternalContact, Conversation, Message
 from .serializers import WebhookSerializer, ConversationSerializer
-from django.db.models import Max, DateTimeField, Count, Q
-from django.db.models.functions import Coalesce
 from rest_framework import generics
-from rest_framework.permissions import IsAdminUser, BasePermission
-from django.conf import settings
-from rest_framework.decorators import action
+from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response as DRFResponse
 from rest_framework import status as drf_status
 
+from .api_helpers import (
+    filter_conversations_for_user,
+    get_conversation_queryset,
+    serialize_conversation_summary,
+    serialize_message,
+)
+from .realtime import broadcast_admin_event
+
 
 class ConversationListView(generics.ListAPIView):
-    # We'll annotate with the latest message timestamp and order by that (newest first).
+    permission_classes = [IsAdminUser]
     queryset = Conversation.objects.all()
-    serializer_class = None  # we'll return simplified JSON
+    serializer_class = None
 
     def list(self, request, *args, **kwargs):
-        qs = self.get_queryset().select_related('external_contact', 'source')
-        # annotate with latest message time; if no messages exist, use conversation.updated_at
-        qs = qs.annotate(
-            last_msg_time=Coalesce(Max('messages__created_at'), 'updated_at', output_field=DateTimeField()),
-            unseen_count=Count('messages', filter=Q(messages__direction='IN') & (~Q(messages__seen=True)))
-        )
-        qs = qs.order_by('-last_msg_time')
-        # if ?mine=1 is provided, filter to conversations where the requesting
-        # user is a participant. This enables a per-user chatroom view.
-        if request.query_params.get('mine') in ('1', 'true', 'True') and request.user.is_authenticated:
-            qs = qs.filter(participants=request.user)
-        qs = qs[:100]
-        data = []
-        for c in qs:
-            last = c.messages.order_by('-created_at').first()
-            data.append({
-                'id': str(c.id),
-                'source': c.source.slug,
-                'external_contact': c.external_contact.external_id if c.external_contact else None,
-                'last_message': last.content if last else None,
-                'updated_at': c.updated_at,
-                'has_unseen': bool(getattr(c, 'unseen_count', 0)),
-            })
+        mine = request.query_params.get('mine') in ('1', 'true', 'True')
+        qs = filter_conversations_for_user(get_conversation_queryset(), request.user, mine)
+        data = [serialize_conversation_summary(c) for c in qs]
         return DRFResponse(data)
 
 
-class AdminOrFrontendTokenPermission(BasePermission):
-    """Allow access if user is admin (session) OR request has matching X-API-KEY header.
-
-    This is intentionally simple for local development. Replace with a stronger
-    authentication mechanism for production.
-    """
-    def has_permission(self, request, view):
-        # admin session user
-        if request.user and request.user.is_authenticated and request.user.is_staff:
-            return True
-        # header token
-        token = request.headers.get('X-API-KEY') or request.META.get('HTTP_X_API_KEY')
-        expected = getattr(settings, 'FRONTEND_API_KEY', None)
-        return bool(token and expected and token == expected)
-
-
 class ReplyCreateView(APIView):
-    # Use DRF authentication (Token or Session). Limit to admin users only for
-    # now so replies must come from staff accounts or a token tied to a staff user.
     permission_classes = [IsAdminUser]
 
     def post(self, request, conversation_id):
@@ -79,29 +45,33 @@ class ReplyCreateView(APIView):
             content=text,
             source=conv.source,
             status=Message.STATUS_PENDING,
+            sender_internal_user=request.user if request.user.is_authenticated else None,
         )
-        # enqueue send task
+        conv.save(update_fields=['updated_at'])
         try:
             from .tasks import send_outbound_message
             send_outbound_message.delay(str(msg.id))
         except Exception:
             pass
-        return DRFResponse({'id': str(msg.id), 'status': msg.status})
 
+        msg_data = serialize_message(msg)
+        broadcast_admin_event('message.new', {
+            'conversation_id': str(conv.id),
+            'message': msg_data,
+            'conversation': serialize_conversation_summary(
+                get_conversation_queryset().get(pk=conv.id),
+            ),
+        })
+        return DRFResponse({'id': str(msg.id), 'status': msg.status, 'message': msg_data})
 
 
 def verify_signature(secret: str, body: bytes, header_signature: str) -> bool:
-    """
-    Simple secret check — no hashing or HMAC.
-    Expect header like:  X-Signature: <secret>
-    """
     if not secret:
         return True
     return header_signature.strip() == secret.strip()
 
 
 def normalize_payload(data: dict) -> dict:
-    # Minimal normalization: assume input has fields we defined in serializer
     return {
         'external_message_id': data.get('external_message_id'),
         'external_user_id': data.get('external_user_id'),
@@ -130,21 +100,23 @@ class IncomingWebhookView(APIView):
         normalized = normalize_payload(serializer.validated_data)
 
         ext_id = normalized.get('external_message_id')
-        # idempotency check
         if ext_id and Message.objects.filter(source=source, external_message_id=ext_id).exists():
             return Response({'status': 'duplicate'}, status=status.HTTP_200_OK)
 
-        contact, _ = ExternalContact.objects.get_or_create(source=source, external_id=normalized['external_user_id'], defaults={'display_name': None})
+        contact, _ = ExternalContact.objects.get_or_create(
+            source=source,
+            external_id=normalized['external_user_id'],
+            defaults={'display_name': None},
+        )
 
-        # find or create conversation by thread_id
         conv = None
         thread_id = normalized.get('thread_id')
         if thread_id:
             conv = Conversation.objects.filter(source=source, metadata__thread_id=thread_id).first()
         if not conv:
-            conv = Conversation.objects.create(source=source, metadata=normalized , external_contact=contact)
+            conv = Conversation.objects.create(source=source, metadata=normalized, external_contact=contact)
 
-        Message.objects.create(
+        msg = Message.objects.create(
             conversation=conv,
             direction=Message.DIRECTION_IN,
             sender_name=contact.display_name,
@@ -154,23 +126,29 @@ class IncomingWebhookView(APIView):
             status=Message.STATUS_RECEIVED,
             attachments=normalized.get('raw', {}).get('attachments', []),
         )
+        conv.save(update_fields=['updated_at'])
 
-        return Response({'status': 'ok'}, status=status.HTTP_200_OK)
+        msg_data = serialize_message(msg)
+        try:
+            summary = serialize_conversation_summary(
+                get_conversation_queryset().get(pk=conv.id),
+            )
+        except Conversation.DoesNotExist:
+            summary = None
+
+        broadcast_admin_event('message.new', {
+            'conversation_id': str(conv.id),
+            'message': msg_data,
+            'conversation': summary,
+        })
+        return Response({'status': 'ok', 'message_id': str(msg.id)}, status=status.HTTP_200_OK)
 
 
 class MockProviderReceiveView(APIView):
-    """A simple endpoint that acts like an external provider receiving outbound replies.
-
-    This is used for local testing: set a Source.outbound_endpoint_template to
-    http://web:8000/api/mock/provider/receive/ so outbound messages are posted here.
-    """
-
     def post(self, request):
-        # Log to stdout so it appears in container logs
         print('--- Mock provider received payload ---')
         print(request.data)
         print('-------------------------------------')
-        # Optionally persist as a WebhookEvent for auditing
         try:
             src = Source.objects.first()
             WebhookEvent.objects.create(source=src, raw_payload=request.data, headers=dict(request.headers))
@@ -179,9 +157,7 @@ class MockProviderReceiveView(APIView):
         return Response({'received': True}, status=status.HTTP_200_OK)
 
 
-
 class MessageSeenView(APIView):
-    """Mark a message as seen (POST)."""
     permission_classes = [IsAdminUser]
 
     def post(self, request, message_id):
@@ -189,10 +165,33 @@ class MessageSeenView(APIView):
         if not msg.seen:
             msg.seen = True
             msg.save(update_fields=['seen'])
+            broadcast_admin_event('message.updated', {
+                'conversation_id': str(msg.conversation_id),
+                'message': serialize_message(msg),
+            })
         return DRFResponse({'id': str(msg.id), 'seen': msg.seen})
 
+
+class ConversationSeenView(APIView):
+    """Mark all inbound unseen messages in a conversation as seen."""
+
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, conversation_id):
+        conv = get_object_or_404(Conversation, pk=conversation_id)
+        updated = Message.objects.filter(
+            conversation=conv,
+            direction=Message.DIRECTION_IN,
+            seen=False,
+        ).update(seen=True)
+        if updated:
+            broadcast_admin_event('conversation.updated', {
+                'conversation_id': str(conv.id),
+            })
+        return DRFResponse({'conversation_id': str(conv.id), 'marked_seen': updated})
+
+
 class ConversationDetailView(generics.RetrieveAPIView):
-    """Return a conversation including its messages (read-only)."""
+    permission_classes = [IsAdminUser]
     queryset = Conversation.objects.all().select_related('external_contact', 'source')
     serializer_class = ConversationSerializer
-

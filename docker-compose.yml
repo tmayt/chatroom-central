@@ -16,11 +16,15 @@ services:
 
   web:
     build: .
-    command: gunicorn project.wsgi:application -b 0.0.0.0:8000
+    command: daphne -b 0.0.0.0 -p 8000 project.asgi:application
     volumes:
       - .:/app
     restart: "always"
     environment:
+      - SITE_URL=${SITE_URL:-http://localhost:8000}
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-}
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-dev-secret}
+      - DJANGO_DEBUG=${DJANGO_DEBUG:-False}
       - CELERY_BROKER_URL=redis://redis:6379/0
       - DJANGO_DB_ENGINE=django.db.backends.postgresql
       - DJANGO_DB_NAME=chatroom

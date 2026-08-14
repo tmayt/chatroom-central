@@ -1,5 +1,7 @@
 import os
 from pathlib import Path
+from urllib.parse import urlparse
+
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -13,25 +15,38 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dev-secret')
 # DEBUG controlled by env (default False for safety)
 DEBUG = os.environ.get('DJANGO_DEBUG', 'False').lower() in ('1', 'true', 'yes')
 
-# ALLOWED_HOSTS: comma-separated
-ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+# Public site URL (used for CSRF, CORS, and absolute links in integrations)
+SITE_URL = os.environ.get('SITE_URL', 'http://localhost:8000').rstrip('/')
+_site = urlparse(SITE_URL)
+SITE_HOST = _site.hostname or 'localhost'
 
-# When running behind a proxy (nginx) and accessing via http://localhost:8000,
-# include that origin so Django's CSRF Origin check accepts POSTs from the same
-# host. Add any other dev origins as needed (e.g. frontend on :3000).
+# ALLOWED_HOSTS: comma-separated; defaults to SITE_URL hostname + local dev hosts
+_allowed_hosts_raw = os.environ.get('DJANGO_ALLOWED_HOSTS', '').strip()
+if _allowed_hosts_raw:
+    ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts_raw.split(',') if h.strip()]
+else:
+    ALLOWED_HOSTS = list(dict.fromkeys([SITE_HOST, 'localhost', '127.0.0.1']))
+
+# CSRF trusted origins: SITE_URL plus http/https variants for each allowed host
 CSRF_TRUSTED_ORIGINS = []
-
+for origin in (SITE_URL,):
+    if origin and origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(origin)
 for host in ALLOWED_HOSTS:
-    CSRF_TRUSTED_ORIGINS.append(f'https://{host}')
-    CSRF_TRUSTED_ORIGINS.append(f'http://{host}')
+    for scheme in ('https', 'http'):
+        origin = f'{scheme}://{host}'
+        if origin not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(origin)
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'channels',
     'rest_framework',
     'drf_spectacular',
     'chatcore',
@@ -68,6 +83,16 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'project.wsgi.application'
+ASGI_APPLICATION = 'project.asgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [os.environ.get('CHANNEL_LAYERS_REDIS', os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0'))],
+        },
+    },
+}
 
 DATABASES = {
     'default': {
@@ -97,10 +122,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
 
-# allow local frontend dev
+# allow local frontend dev + deployed site origin
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
+    SITE_URL,
 ]
+CORS_ALLOWED_ORIGINS = list(dict.fromkeys(CORS_ALLOWED_ORIGINS))
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -123,4 +150,5 @@ SPECTACULAR_SETTINGS = {
     'TITLE': 'Chatroom API',
     'DESCRIPTION': 'API for Chatroom admin and webhook integrations',
     'VERSION': '1.0.0',
+    'SERVERS': [{'url': SITE_URL, 'description': 'Current deployment'}],
 }

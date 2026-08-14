@@ -8,6 +8,8 @@ venv/
 # Django / static
 /staticfiles/
 staticfiles/
+db.sqlite3
+*.sqlite3
 
 # Node / frontend
 /frontend/node_modules/
