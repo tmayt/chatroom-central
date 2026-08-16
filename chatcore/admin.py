@@ -3,7 +3,7 @@ from django.urls import path
 from django.shortcuts import redirect
 from django.utils.html import format_html
 
-from .models import Source, ExternalContact, Conversation, Message, DeliveryReceipt, WebhookEvent, ErrorLog
+from .models import Source, ExternalContact, Conversation, Message, DeliveryReceipt, WebhookEvent, ErrorLog, CannedReply
 
 
 @admin.register(Source)
@@ -97,4 +97,11 @@ class ErrorLogAdmin(admin.ModelAdmin):
     def short_message(self, obj):
         return (obj.message[:80] + '...') if obj.message and len(obj.message) > 80 else obj.message
     short_message.short_description = 'Message'
+
+
+@admin.register(CannedReply)
+class CannedReplyAdmin(admin.ModelAdmin):
+    list_display = ('title', 'sort_order', 'updated_at')
+    search_fields = ('title', 'body')
+    ordering = ('sort_order', 'title')
 

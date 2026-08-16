@@ -132,3 +132,104 @@ class MessageSerializeTests(TestCase):
         self.assertEqual(data['id'], str(self.msg.id))
         self.assertEqual(data['conversation'], str(self.conv.id))
         self.assertEqual(data['source'], str(self.src.id))
+
+
+class ConversationUnreadTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username='admin',
+            password='secret',
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.token = Token.objects.create(user=self.user)
+        self.client = Client()
+        self.src = Source.objects.create(slug='generic', display_name='Generic')
+        from .models import Conversation, Message
+        self.Conversation = Conversation
+        self.Message = Message
+
+    def auth(self):
+        return {'HTTP_AUTHORIZATION': f'Token {self.token.key}'}
+
+    def test_unread_conversations_are_listed_first(self):
+        read_conv = self.Conversation.objects.create(source=self.src)
+        unread_conv = self.Conversation.objects.create(source=self.src)
+        self.Message.objects.create(
+            conversation=read_conv,
+            direction=self.Message.DIRECTION_IN,
+            content='old',
+            source=self.src,
+            seen=True,
+        )
+        self.Message.objects.create(
+            conversation=unread_conv,
+            direction=self.Message.DIRECTION_IN,
+            content='new',
+            source=self.src,
+            seen=False,
+        )
+        resp = self.client.get('/api/v1/conversations/', **self.auth())
+        self.assertEqual(resp.status_code, 200)
+        ids = [item['id'] for item in resp.json()]
+        self.assertEqual(ids[0], str(unread_conv.id))
+        self.assertTrue(resp.json()[0]['has_unseen'])
+
+    def test_mark_conversation_unread(self):
+        conv = self.Conversation.objects.create(source=self.src)
+        msg = self.Message.objects.create(
+            conversation=conv,
+            direction=self.Message.DIRECTION_IN,
+            content='hello',
+            source=self.src,
+            seen=True,
+        )
+        resp = self.client.post(f'/api/v1/conversations/{conv.id}/unseen/', **self.auth())
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['marked_unseen'], 1)
+        msg.refresh_from_db()
+        self.assertFalse(msg.seen)
+
+
+class CannedReplyApiTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username='admin',
+            password='secret',
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.token = Token.objects.create(user=self.user)
+        self.client = Client()
+
+    def auth(self):
+        return {'HTTP_AUTHORIZATION': f'Token {self.token.key}'}
+
+    def test_create_update_delete(self):
+        created = self.client.post(
+            '/api/v1/canned-replies/',
+            {'title': 'Hello', 'body': 'Hi there', 'sort_order': 1},
+            content_type='application/json',
+            **self.auth(),
+        )
+        self.assertEqual(created.status_code, 201)
+        reply_id = created.json()['id']
+
+        listed = self.client.get('/api/v1/canned-replies/', **self.auth())
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(len(listed.json()), 1)
+
+        updated = self.client.patch(
+            f'/api/v1/canned-replies/{reply_id}/',
+            {'body': 'Hi there, how can I help?'},
+            content_type='application/json',
+            **self.auth(),
+        )
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.json()['body'], 'Hi there, how can I help?')
+
+        deleted = self.client.delete(f'/api/v1/canned-replies/{reply_id}/', **self.auth())
+        self.assertEqual(deleted.status_code, 204)
+        self.assertEqual(self.client.get('/api/v1/canned-replies/', **self.auth()).json(), [])

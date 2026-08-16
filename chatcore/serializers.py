@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Conversation, Message, Source, ExternalContact
+from .models import Conversation, Message, Source, ExternalContact, CannedReply
 
 
 class MessageSerializer(serializers.ModelSerializer):
@@ -37,3 +37,16 @@ class WebhookSerializer(serializers.Serializer):
     content = serializers.CharField(required=False, allow_blank=True)
     thread_id = serializers.CharField(required=False, allow_blank=True)
     raw = serializers.DictField(child=serializers.JSONField(), required=False)
+
+
+class CannedReplySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CannedReply
+        fields = ('id', 'title', 'body', 'sort_order', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if data.get('id') is not None:
+            data['id'] = str(data['id'])
+        return data

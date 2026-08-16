@@ -117,3 +117,18 @@ class ErrorLog(models.Model):
 
     def __str__(self):
         return f'{self.status_code} {self.method} {self.path}'
+
+
+class CannedReply(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    title = models.CharField(max_length=120)
+    body = models.TextField()
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['sort_order', 'title']
+
+    def __str__(self):
+        return self.title

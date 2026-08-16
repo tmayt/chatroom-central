@@ -1,11 +1,9 @@
 """Shared serialization helpers for API and realtime events."""
 
-"""Shared serialization helpers for API and realtime events."""
-
 import json
 
 from django.core.serializers.json import DjangoJSONEncoder
-from django.db.models import Count, DateTimeField, Max, Q
+from django.db.models import Case, Count, DateTimeField, IntegerField, Max, Q, Value, When
 from django.db.models.functions import Coalesce
 
 from .models import Conversation, Message
@@ -39,8 +37,14 @@ def get_conversation_queryset():
     qs = qs.annotate(
         last_msg_time=Coalesce(Max('messages__created_at'), 'updated_at', output_field=DateTimeField()),
         unseen_count=Count('messages', filter=Q(messages__direction='IN') & (~Q(messages__seen=True))),
+    ).annotate(
+        unseen_rank=Case(
+            When(unseen_count__gt=0, then=Value(0)),
+            default=Value(1),
+            output_field=IntegerField(),
+        ),
     )
-    return qs.order_by('-last_msg_time')
+    return qs.order_by('unseen_rank', '-last_msg_time')
 
 
 def filter_conversations_for_user(qs, user, mine_only=False):

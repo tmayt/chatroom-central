@@ -3,8 +3,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from .models import Source, WebhookEvent, ExternalContact, Conversation, Message, ErrorLog
-from .serializers import WebhookSerializer, ConversationSerializer
+from .models import Source, WebhookEvent, ExternalContact, Conversation, Message, ErrorLog, CannedReply
+from .serializers import WebhookSerializer, ConversationSerializer, CannedReplySerializer
 from rest_framework import generics
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response as DRFResponse
@@ -191,6 +191,29 @@ class ConversationSeenView(APIView):
         return DRFResponse({'conversation_id': str(conv.id), 'marked_seen': updated})
 
 
+class ConversationUnseenView(APIView):
+    """Mark inbound messages in a conversation as unread."""
+
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, conversation_id):
+        conv = get_object_or_404(Conversation, pk=conversation_id)
+        updated = Message.objects.filter(
+            conversation=conv,
+            direction=Message.DIRECTION_IN,
+            seen=True,
+        ).update(seen=False)
+        if updated:
+            broadcast_admin_event('conversation.updated', {
+                'conversation_id': str(conv.id),
+            })
+        return DRFResponse({
+            'conversation_id': str(conv.id),
+            'marked_unseen': updated,
+            'has_unseen': updated > 0,
+        })
+
+
 class ConversationDetailView(generics.RetrieveAPIView):
     permission_classes = [IsAdminUser]
     queryset = Conversation.objects.all().select_related('external_contact', 'source')
@@ -241,3 +264,15 @@ class ErrorLogDetailView(APIView):
         err = get_object_or_404(ErrorLog, pk=pk)
         err.delete()
         return DRFResponse(status=drf_status.HTTP_204_NO_CONTENT)
+
+
+class CannedReplyListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAdminUser]
+    queryset = CannedReply.objects.all()
+    serializer_class = CannedReplySerializer
+
+
+class CannedReplyDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAdminUser]
+    queryset = CannedReply.objects.all()
+    serializer_class = CannedReplySerializer

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import 'bootstrap/dist/css/bootstrap.min.css'
 import './styles.css'
 import ErrorsPage from './ErrorsPage'
+import CannedRepliesPage from './CannedRepliesPage'
 import { describeFetchError, openHtmlInNewTab } from './errorDisplay'
 
 const SCROLL_THRESHOLD = 48
@@ -44,11 +45,29 @@ function upsertMessage(prev, message) {
 function upsertConversation(prev, conversation) {
   if (!conversation) return prev
   const idx = prev.findIndex((c) => c.id === conversation.id)
-  if (idx === -1) return [conversation, ...prev]
-  const next = [...prev]
-  next[idx] = { ...next[idx], ...conversation }
-  next.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
-  return next
+  const next = idx === -1 ? [conversation, ...prev] : prev.map((c, i) => (i === idx ? { ...c, ...conversation } : c))
+  return sortConversations(next)
+}
+
+function sortConversations(list) {
+  return [...list].sort((a, b) => {
+    const unreadA = a.has_unseen ? 1 : 0
+    const unreadB = b.has_unseen ? 1 : 0
+    if (unreadA !== unreadB) return unreadB - unreadA
+    return new Date(b.updated_at || 0) - new Date(a.updated_at || 0)
+  })
+}
+
+function pageFromPath(pathname) {
+  if (pathname.startsWith('/errors')) return 'errors'
+  if (pathname.startsWith('/canned')) return 'canned'
+  return 'chat'
+}
+
+function pathFromPage(page) {
+  if (page === 'errors') return '/errors'
+  if (page === 'canned') return '/canned'
+  return '/'
 }
 
 function formatTime(value) {
@@ -89,8 +108,10 @@ export default function App() {
   const [error, setError] = useState('')
   const [errorHtml, setErrorHtml] = useState('')
   const [showJumpButton, setShowJumpButton] = useState(false)
-  const [page, setPage] = useState('chat')
+  const [page, setPage] = useState(() => pageFromPath(window.location.pathname))
   const [errorCount, setErrorCount] = useState(0)
+  const [cannedReplies, setCannedReplies] = useState([])
+  const [markingUnread, setMarkingUnread] = useState(false)
 
   const refreshErrorCount = useCallback(async () => {
     if (!token) {
@@ -126,10 +147,46 @@ export default function App() {
   const initialConvLoadRef = useRef(true)
   const wsRef = useRef(null)
   const selectedRef = useRef(selected)
+  const holdUnseenRef = useRef('')
+  const scrolledToUnseenRef = useRef('')
 
   useEffect(() => {
     selectedRef.current = selected
   }, [selected])
+
+  const goTo = (nextPage) => {
+    const path = pathFromPage(nextPage)
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, '', path)
+    }
+    setPage(nextPage)
+    setOffcanvasOpen(false)
+  }
+
+  useEffect(() => {
+    const onPopState = () => setPage(pageFromPath(window.location.pathname))
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
+
+  const loadCannedReplies = useCallback(async () => {
+    if (!token) {
+      setCannedReplies([])
+      return
+    }
+    try {
+      const res = await fetch('/api/v1/canned-replies/', { headers: authHeaders(token) })
+      if (!res.ok) return
+      const data = await res.json()
+      setCannedReplies(Array.isArray(data) ? data : data.results || [])
+    } catch {
+      // ignore
+    }
+  }, [token])
+
+  useEffect(() => {
+    loadCannedReplies()
+  }, [loadCannedReplies])
 
   const loadConversations = useCallback(async (showLoading = false) => {
     if (!token) {
@@ -142,7 +199,7 @@ export default function App() {
       const res = await fetch('/api/v1/conversations/', { headers: authHeaders(token) })
       if (res.ok) {
         const data = await res.json()
-        setConversations(data)
+        setConversations(sortConversations(data))
         clearError()
       } else {
         setConversations([])
@@ -210,6 +267,10 @@ export default function App() {
     }
     isScrolledUpRef.current = false
     prevMessageIdsRef.current = ''
+    scrolledToUnseenRef.current = ''
+    if (holdUnseenRef.current !== selected.id) {
+      holdUnseenRef.current = ''
+    }
     setShowJumpButton(false)
     loadConversationDetail(selected, true)
   }, [selected?.id, loadConversationDetail])
@@ -310,6 +371,7 @@ export default function App() {
 
   useEffect(() => {
     if (!selected || !messages.length) return undefined
+    if (holdUnseenRef.current === selected.id) return undefined
     const unseenInbound = messages.filter((m) => m.direction === 'IN' && m.seen !== true)
     if (!unseenInbound.length) return undefined
 
@@ -323,7 +385,7 @@ export default function App() {
           msgs.map((msg) => (msg.direction === 'IN' ? { ...msg, seen: true } : msg)),
         )
         setConversations((prev) =>
-          prev.map((c) => (c.id === selected.id ? { ...c, has_unseen: false } : c)),
+          sortConversations(prev.map((c) => (c.id === selected.id ? { ...c, has_unseen: false } : c))),
         )
       } catch {
         // ignore
@@ -338,6 +400,24 @@ export default function App() {
     if (!el) return
 
     const currentIds = messages.map((m) => m.id).join(',')
+    const firstUnseen = messages.find((m) => m.direction === 'IN' && m.seen !== true)
+    const shouldScrollToUnseen =
+      firstUnseen && selected?.id && scrolledToUnseenRef.current !== selected.id
+
+    if (shouldScrollToUnseen) {
+      requestAnimationFrame(() => {
+        const node = el.querySelector(`[data-message-id="${firstUnseen.id}"]`)
+        if (node) {
+          node.scrollIntoView({ block: 'center' })
+          isScrolledUpRef.current = true
+          setShowJumpButton(true)
+        }
+      })
+      scrolledToUnseenRef.current = selected.id
+      prevMessageIdsRef.current = currentIds
+      return
+    }
+
     const hadNewMessages =
       currentIds !== prevMessageIdsRef.current &&
       messages.length >= prevMessageIdsRef.current.split(',').filter(Boolean).length
@@ -349,7 +429,7 @@ export default function App() {
     }
 
     prevMessageIdsRef.current = currentIds
-  }, [messages])
+  }, [messages, selected?.id])
 
   const handleMessagesScroll = () => {
     const el = messagesRef.current
@@ -366,6 +446,35 @@ export default function App() {
     el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
     isScrolledUpRef.current = false
     setShowJumpButton(false)
+  }
+
+  const markUnread = async () => {
+    if (!selected || markingUnread) return
+    holdUnseenRef.current = selected.id
+    setMarkingUnread(true)
+    try {
+      const res = await fetch(`/api/v1/conversations/${selected.id}/unseen/`, {
+        method: 'POST',
+        headers: authHeaders(token, { 'Content-Type': 'application/json' }),
+      })
+      if (!res.ok) {
+        holdUnseenRef.current = ''
+        const err = await describeFetchError(res, 'Could not mark as unread')
+        showError(err.message, err.html)
+        return
+      }
+      setMessages((msgs) =>
+        msgs.map((msg) => (msg.direction === 'IN' ? { ...msg, seen: false } : msg)),
+      )
+      setConversations((prev) =>
+        sortConversations(prev.map((c) => (c.id === selected.id ? { ...c, has_unseen: true } : c))),
+      )
+    } catch {
+      holdUnseenRef.current = ''
+      showError('Network error while marking unread.')
+    } finally {
+      setMarkingUnread(false)
+    }
   }
 
   const reply = async () => {
@@ -433,19 +542,30 @@ export default function App() {
     setUsername('')
     setPassword('')
     setPage('chat')
+    if (window.location.pathname !== '/') {
+      window.history.pushState({}, '', '/')
+    }
     setErrorCount(0)
+    setCannedReplies([])
   }
 
   const filteredConversations = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return conversations
-    return conversations.filter((c) => {
-      const contact = (c.external_contact || '').toLowerCase()
-      const last = (c.last_message || '').toLowerCase()
-      const source = (c.source || '').toLowerCase()
-      return contact.includes(q) || last.includes(q) || source.includes(q)
-    })
+    const list = !q
+      ? conversations
+      : conversations.filter((c) => {
+          const contact = (c.external_contact || '').toLowerCase()
+          const last = (c.last_message || '').toLowerCase()
+          const source = (c.source || '').toLowerCase()
+          return contact.includes(q) || last.includes(q) || source.includes(q)
+        })
+    return sortConversations(list)
   }, [conversations, search])
+
+  const firstUnseenMessageId = useMemo(
+    () => messages.find((m) => m.direction === 'IN' && m.seen !== true)?.id,
+    [messages],
+  )
 
   if (!token) {
     return (
@@ -498,35 +618,50 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        {page === 'chat' && (
-          <button
-            className="btn btn-icon d-md-none"
-            type="button"
-            onClick={() => setOffcanvasOpen(true)}
-            aria-label="Open conversations"
-          >
-            ☰
-          </button>
-        )}
-        <div className="app-header-title">
-          <span className="brand-dot" />
-          Chatroom Central
+        <div className="app-header-bar">
+          {page === 'chat' && (
+            <button
+              className="btn btn-icon d-md-none"
+              type="button"
+              onClick={() => setOffcanvasOpen(true)}
+              aria-label="Open conversations"
+            >
+              ☰
+            </button>
+          )}
+          <div className="app-header-title">
+            <span className="brand-dot" />
+            <span className="brand-name">Chatroom Central</span>
+          </div>
+          <div className="app-header-actions">
+            <span className={`ws-badge ws-${wsStatus}`}>
+              {wsStatus === 'connected' ? 'Live' : wsStatus === 'connecting' ? 'Connecting…' : 'Offline'}
+            </span>
+            <button className="btn btn-outline-secondary btn-sm" type="button" onClick={logout}>
+              Logout
+            </button>
+          </div>
         </div>
         <nav className="app-nav">
           <button
             type="button"
             className={`nav-link-btn ${page === 'chat' ? 'active' : ''}`}
-            onClick={() => setPage('chat')}
+            onClick={() => goTo('chat')}
           >
             Chats
           </button>
           <button
             type="button"
+            className={`nav-link-btn ${page === 'canned' ? 'active' : ''}`}
+            onClick={() => goTo('canned')}
+          >
+            <span className="nav-label-full">Quick replies</span>
+            <span className="nav-label-short">Replies</span>
+          </button>
+          <button
+            type="button"
             className={`nav-link-btn ${page === 'errors' ? 'active' : ''}`}
-            onClick={() => {
-              setPage('errors')
-              setOffcanvasOpen(false)
-            }}
+            onClick={() => goTo('errors')}
           >
             Errors
             {errorCount > 0 && (
@@ -534,14 +669,6 @@ export default function App() {
             )}
           </button>
         </nav>
-        <div className="app-header-actions">
-          <span className={`ws-badge ws-${wsStatus}`}>
-            {wsStatus === 'connected' ? 'Live' : wsStatus === 'connecting' ? 'Connecting…' : 'Offline'}
-          </span>
-          <button className="btn btn-outline-secondary btn-sm" type="button" onClick={logout}>
-            Logout
-          </button>
-        </div>
       </header>
 
       {error && (
@@ -566,6 +693,8 @@ export default function App() {
 
       {page === 'errors' ? (
         <ErrorsPage token={token} onCountChange={setErrorCount} />
+      ) : page === 'canned' ? (
+        <CannedRepliesPage token={token} onChanged={loadCannedReplies} />
       ) : (
       <div className="app-layout">
         <aside className={`sidebar ${offcanvasOpen ? 'open' : ''}`}>
@@ -644,8 +773,18 @@ export default function App() {
                     Source: <span className="source-pill">{selected.source}</span>
                   </div>
                 </div>
-                <div className="chat-updated text-muted small">
-                  Updated {formatTime(selected.updated_at)}
+                <div className="chat-header-actions">
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary btn-sm"
+                    onClick={markUnread}
+                    disabled={markingUnread || !messages.some((m) => m.direction === 'IN')}
+                  >
+                    {markingUnread ? 'Updating…' : 'Mark unread'}
+                  </button>
+                  <div className="chat-updated text-muted small">
+                    Updated {formatTime(selected.updated_at)}
+                  </div>
                 </div>
               </div>
 
@@ -669,23 +808,28 @@ export default function App() {
                       .filter(Boolean)
                       .join(' ')
                     return (
-                      <div key={m.id} className={`message-row ${isIn ? 'in' : 'out'}`}>
-                        <div className={bubbleClass}>
-                          <div className="bubble-meta">
-                            <span className="sender">
-                              {m.sender_name || (isIn ? selected.external_contact : 'Admin')}
-                            </span>
-                            <span className="dot">·</span>
-                            <span className="time">{formatTime(m.created_at)}</span>
-                          </div>
-                          <div className="bubble-content">{m.content}</div>
-                          {!isIn && (
-                            <div className={`message-status status-${(m.status || '').toLowerCase()}`}>
-                              {statusLabel(m.status)}
+                      <React.Fragment key={m.id}>
+                        {m.id === firstUnseenMessageId && (
+                          <div className="unread-divider">New messages</div>
+                        )}
+                        <div data-message-id={m.id} className={`message-row ${isIn ? 'in' : 'out'}`}>
+                          <div className={bubbleClass}>
+                            <div className="bubble-meta">
+                              <span className="sender">
+                                {m.sender_name || (isIn ? selected.external_contact : 'Admin')}
+                              </span>
+                              <span className="dot">·</span>
+                              <span className="time">{formatTime(m.created_at)}</span>
                             </div>
-                          )}
+                            <div className="bubble-content">{m.content}</div>
+                            {!isIn && (
+                              <div className={`message-status status-${(m.status || '').toLowerCase()}`}>
+                                {statusLabel(m.status)}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      </React.Fragment>
                     )
                   })
                 )}
@@ -700,6 +844,21 @@ export default function App() {
               )}
 
               <div className="composer">
+                {cannedReplies.length > 0 && (
+                  <div className="canned-bar">
+                    {cannedReplies.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className="canned-chip"
+                        onClick={() => setText(item.body)}
+                        title={item.body}
+                      >
+                        {item.title}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <textarea
                   className="form-control"
                   rows={3}
