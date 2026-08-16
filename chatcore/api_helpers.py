@@ -1,5 +1,10 @@
 """Shared serialization helpers for API and realtime events."""
 
+"""Shared serialization helpers for API and realtime events."""
+
+import json
+
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import Count, DateTimeField, Max, Q
 from django.db.models.functions import Coalesce
 
@@ -7,8 +12,13 @@ from .models import Conversation, Message
 from .serializers import MessageSerializer
 
 
+def json_safe(value):
+    """Convert UUID/datetime/etc. into JSON (and Redis msgpack) safe types."""
+    return json.loads(json.dumps(value, cls=DjangoJSONEncoder))
+
+
 def serialize_message(msg):
-    return MessageSerializer(msg).data
+    return json_safe(MessageSerializer(msg).data)
 
 
 def serialize_conversation_summary(c):

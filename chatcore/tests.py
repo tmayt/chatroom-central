@@ -98,3 +98,37 @@ class ErrorLogMiddlewareTests(TestCase):
         request = RequestFactory().get('/api/v1/errors/')
         middleware(request)
         self.assertEqual(ErrorLog.objects.count(), 0)
+
+
+class MessageSerializeTests(TestCase):
+    def setUp(self):
+        self.src = Source.objects.create(slug='generic', display_name='Generic')
+        from .models import Conversation, Message
+        self.conv = Conversation.objects.create(source=self.src)
+        self.msg = Message.objects.create(
+            conversation=self.conv,
+            direction=Message.DIRECTION_OUT,
+            content='hello',
+            source=self.src,
+            status=Message.STATUS_PENDING,
+        )
+
+    def test_serialize_message_has_no_uuid_objects(self):
+        from uuid import UUID
+        from .api_helpers import serialize_message
+
+        data = serialize_message(self.msg)
+
+        def assert_no_uuid(value):
+            self.assertNotIsInstance(value, UUID)
+            if isinstance(value, dict):
+                for item in value.values():
+                    assert_no_uuid(item)
+            elif isinstance(value, (list, tuple)):
+                for item in value:
+                    assert_no_uuid(item)
+
+        assert_no_uuid(data)
+        self.assertEqual(data['id'], str(self.msg.id))
+        self.assertEqual(data['conversation'], str(self.conv.id))
+        self.assertEqual(data['source'], str(self.src.id))

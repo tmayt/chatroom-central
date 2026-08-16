@@ -7,6 +7,15 @@ class MessageSerializer(serializers.ModelSerializer):
         model = Message
         fields = '__all__'
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # FK primary keys are UUID objects; JSON can encode them, msgpack cannot.
+        for key in ('id', 'conversation', 'source', 'sender_internal_user'):
+            value = data.get(key)
+            if value is not None:
+                data[key] = str(value)
+        return data
+
 
 class ConversationSerializer(serializers.ModelSerializer):
     # Return messages ordered by created_at so consumers always get chronological order

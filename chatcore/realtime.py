@@ -3,6 +3,8 @@
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
+from .api_helpers import json_safe
+
 
 ADMIN_GROUP = 'admin_updates'
 
@@ -19,6 +21,6 @@ def broadcast_admin_event(event_type, payload=None):
         ADMIN_GROUP,
         {
             'type': 'chat.event',
-            'data': data,
+            'data': json_safe(data),
         },
     )
