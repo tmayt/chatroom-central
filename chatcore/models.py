@@ -100,3 +100,20 @@ class WebhookEvent(models.Model):
     headers = models.JSONField(default=dict)
     processed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class ErrorLog(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    method = models.CharField(max_length=10)
+    path = models.CharField(max_length=500)
+    status_code = models.PositiveSmallIntegerField(default=500)
+    message = models.TextField(blank=True)
+    detail = models.TextField(blank=True)
+    content_type = models.CharField(max_length=120, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.status_code} {self.method} {self.path}'

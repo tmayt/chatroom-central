@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from .models import Source, WebhookEvent, ExternalContact, Conversation, Message
+from .models import Source, WebhookEvent, ExternalContact, Conversation, Message, ErrorLog
 from .serializers import WebhookSerializer, ConversationSerializer
 from rest_framework import generics
 from rest_framework.permissions import IsAdminUser
@@ -195,3 +195,49 @@ class ConversationDetailView(generics.RetrieveAPIView):
     permission_classes = [IsAdminUser]
     queryset = Conversation.objects.all().select_related('external_contact', 'source')
     serializer_class = ConversationSerializer
+
+
+def serialize_error_log(err, include_detail=False):
+    data = {
+        'id': str(err.id),
+        'method': err.method,
+        'path': err.path,
+        'status_code': err.status_code,
+        'message': err.message,
+        'content_type': err.content_type,
+        'created_at': err.created_at.isoformat() if err.created_at else None,
+    }
+    if include_detail:
+        data['detail'] = err.detail
+    return data
+
+
+class ErrorLogListView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        qs = ErrorLog.objects.all()
+        total = qs.count()
+        if request.query_params.get('count_only') in ('1', 'true', 'True'):
+            return DRFResponse({'count': total})
+        return DRFResponse({
+            'count': total,
+            'results': [serialize_error_log(err) for err in qs[:200]],
+        })
+
+    def delete(self, request):
+        deleted, _ = ErrorLog.objects.all().delete()
+        return DRFResponse({'deleted': deleted})
+
+
+class ErrorLogDetailView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, pk):
+        err = get_object_or_404(ErrorLog, pk=pk)
+        return DRFResponse(serialize_error_log(err, include_detail=True))
+
+    def delete(self, request, pk):
+        err = get_object_or_404(ErrorLog, pk=pk)
+        err.delete()
+        return DRFResponse(status=drf_status.HTTP_204_NO_CONTENT)

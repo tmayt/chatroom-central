@@ -6,6 +6,8 @@ from .views import (
     ConversationDetailView,
     MessageSeenView,
     ConversationSeenView,
+    ErrorLogListView,
+    ErrorLogDetailView,
 )
 
 urlpatterns = [
@@ -15,4 +17,6 @@ urlpatterns = [
     path('conversations/<uuid:pk>/', ConversationDetailView.as_view(), name='conversation-detail'),
     path('auth/token/', obtain_auth_token, name='api-token-auth'),
     path('messages/<uuid:message_id>/seen/', MessageSeenView.as_view(), name='message-seen'),
+    path('errors/', ErrorLogListView.as_view(), name='error-log-list'),
+    path('errors/<uuid:pk>/', ErrorLogDetailView.as_view(), name='error-log-detail'),
 ]

@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import 'bootstrap/dist/css/bootstrap.min.css'
 import './styles.css'
+import ErrorsPage from './ErrorsPage'
+import { describeFetchError, openHtmlInNewTab } from './errorDisplay'
 
 const SCROLL_THRESHOLD = 48
 const FALLBACK_POLL_MS = 60000
@@ -69,94 +71,6 @@ function statusLabel(status) {
   }
 }
 
-function looksLikeHtml(contentType, body) {
-  if ((contentType || '').includes('text/html')) return true
-  const trimmed = (body || '').trimStart().toLowerCase()
-  return trimmed.startsWith('<!doctype') || trimmed.startsWith('<html')
-}
-
-function openHtmlInNewTab(html) {
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const win = window.open(url, '_blank')
-  if (win) {
-    try {
-      win.opener = null
-    } catch {
-      // ignore
-    }
-  }
-  setTimeout(() => URL.revokeObjectURL(url), 60_000)
-  return Boolean(win)
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-}
-
-function readableErrorPage(status, body, contentType) {
-  if (looksLikeHtml(contentType, body)) return body
-
-  let content = body || '(empty response)'
-  if ((contentType || '').includes('application/json') || content.trim().startsWith('{') || content.trim().startsWith('[')) {
-    try {
-      content = JSON.stringify(JSON.parse(body), null, 2)
-    } catch {
-      // keep raw body
-    }
-  }
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>HTTP ${status}</title>
-  <style>
-    body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: #0b1220; color: #e8eef8; margin: 0; padding: 24px; }
-    h1 { font-size: 1.1rem; font-weight: 600; margin: 0 0 16px; color: #fecaca; }
-    pre { white-space: pre-wrap; word-break: break-word; margin: 0; line-height: 1.45; }
-  </style>
-</head>
-<body>
-  <h1>Server error (HTTP ${status})</h1>
-  <pre>${escapeHtml(content)}</pre>
-</body>
-</html>`
-}
-
-async function describeFetchError(res, fallback, { openTab = true } = {}) {
-  const contentType = res.headers.get('content-type') || ''
-  const body = await res.text()
-  const isServerError = res.status >= 500
-
-  if (isServerError && body) {
-    const html = readableErrorPage(res.status, body, contentType)
-    const opened = openTab ? openHtmlInNewTab(html) : false
-    return {
-      message: opened
-        ? `${fallback} (HTTP ${res.status}). Details opened in a new tab.`
-        : `${fallback} (HTTP ${res.status}). Click “View traceback” to inspect.`,
-      html,
-    }
-  }
-
-  let detail = body
-  try {
-    const json = JSON.parse(body)
-    detail = json.detail || json.error || JSON.stringify(json)
-  } catch {
-    detail = body.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300)
-  }
-
-  return {
-    message: detail ? `${fallback}: ${detail}` : `${fallback} (HTTP ${res.status})`,
-    html: null,
-  }
-}
-
 export default function App() {
   const [offcanvasOpen, setOffcanvasOpen] = useState(false)
   const [conversations, setConversations] = useState([])
@@ -175,10 +89,29 @@ export default function App() {
   const [error, setError] = useState('')
   const [errorHtml, setErrorHtml] = useState('')
   const [showJumpButton, setShowJumpButton] = useState(false)
+  const [page, setPage] = useState('chat')
+  const [errorCount, setErrorCount] = useState(0)
+
+  const refreshErrorCount = useCallback(async () => {
+    if (!token) {
+      setErrorCount(0)
+      return
+    }
+    try {
+      const res = await fetch('/api/v1/errors/?count_only=1', { headers: authHeaders(token) })
+      if (res.ok) {
+        const data = await res.json()
+        setErrorCount(data.count || 0)
+      }
+    } catch {
+      // ignore
+    }
+  }, [token])
 
   const showError = (message, html = '') => {
     setError(message)
     setErrorHtml(html || '')
+    if (html) refreshErrorCount()
   }
 
   const clearError = () => {
@@ -282,15 +215,20 @@ export default function App() {
   }, [selected?.id, loadConversationDetail])
 
   useEffect(() => {
+    refreshErrorCount()
+  }, [refreshErrorCount])
+
+  useEffect(() => {
     if (!token) return undefined
     const interval = setInterval(() => {
       loadConversations(false)
       if (selectedRef.current) {
         loadConversationDetail(selectedRef.current, false)
       }
+      refreshErrorCount()
     }, FALLBACK_POLL_MS)
     return () => clearInterval(interval)
-  }, [token, loadConversations, loadConversationDetail])
+  }, [token, loadConversations, loadConversationDetail, refreshErrorCount])
 
   useEffect(() => {
     if (!token) return undefined
@@ -494,6 +432,8 @@ export default function App() {
     setMessages([])
     setUsername('')
     setPassword('')
+    setPage('chat')
+    setErrorCount(0)
   }
 
   const filteredConversations = useMemo(() => {
@@ -558,18 +498,42 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <button
-          className="btn btn-icon d-md-none"
-          type="button"
-          onClick={() => setOffcanvasOpen(true)}
-          aria-label="Open conversations"
-        >
-          ☰
-        </button>
+        {page === 'chat' && (
+          <button
+            className="btn btn-icon d-md-none"
+            type="button"
+            onClick={() => setOffcanvasOpen(true)}
+            aria-label="Open conversations"
+          >
+            ☰
+          </button>
+        )}
         <div className="app-header-title">
           <span className="brand-dot" />
           Chatroom Central
         </div>
+        <nav className="app-nav">
+          <button
+            type="button"
+            className={`nav-link-btn ${page === 'chat' ? 'active' : ''}`}
+            onClick={() => setPage('chat')}
+          >
+            Chats
+          </button>
+          <button
+            type="button"
+            className={`nav-link-btn ${page === 'errors' ? 'active' : ''}`}
+            onClick={() => {
+              setPage('errors')
+              setOffcanvasOpen(false)
+            }}
+          >
+            Errors
+            {errorCount > 0 && (
+              <span className="error-count-badge">{errorCount > 99 ? '99+' : errorCount}</span>
+            )}
+          </button>
+        </nav>
         <div className="app-header-actions">
           <span className={`ws-badge ws-${wsStatus}`}>
             {wsStatus === 'connected' ? 'Live' : wsStatus === 'connecting' ? 'Connecting…' : 'Offline'}
@@ -600,6 +564,9 @@ export default function App() {
         </div>
       )}
 
+      {page === 'errors' ? (
+        <ErrorsPage token={token} onCountChange={setErrorCount} />
+      ) : (
       <div className="app-layout">
         <aside className={`sidebar ${offcanvasOpen ? 'open' : ''}`}>
           <div className="sidebar-inner">
@@ -772,6 +739,7 @@ export default function App() {
           )}
         </main>
       </div>
+      )}
     </div>
   )
 }

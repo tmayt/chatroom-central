@@ -3,7 +3,7 @@ from django.urls import path
 from django.shortcuts import redirect
 from django.utils.html import format_html
 
-from .models import Source, ExternalContact, Conversation, Message, DeliveryReceipt, WebhookEvent
+from .models import Source, ExternalContact, Conversation, Message, DeliveryReceipt, WebhookEvent, ErrorLog
 
 
 @admin.register(Source)
@@ -85,4 +85,16 @@ class MessageAdmin(admin.ModelAdmin):
     def short_content(self, obj):
         return (obj.content[:60] + "...") if obj.content and len(obj.content) > 60 else obj.content
     short_content.short_description = "Content"
+
+
+@admin.register(ErrorLog)
+class ErrorLogAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'status_code', 'method', 'path', 'short_message')
+    list_filter = ('status_code', 'method', 'created_at')
+    search_fields = ('path', 'message', 'detail')
+    readonly_fields = ('created_at', 'method', 'path', 'status_code', 'message', 'detail', 'content_type')
+
+    def short_message(self, obj):
+        return (obj.message[:80] + '...') if obj.message and len(obj.message) > 80 else obj.message
+    short_message.short_description = 'Message'
 
