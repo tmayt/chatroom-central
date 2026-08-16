@@ -147,6 +147,20 @@ textarea {
   color: #fecaca;
 }
 
+.app-alert > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-alert-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
 .btn-close-alert {
   background: transparent;
   border: 0;
@@ -166,7 +180,7 @@ textarea {
 /* Sidebar */
 .sidebar {
   border-right: 1px solid var(--border);
-  background: rgba(15, 23, 42, 0.72);
+  background: var(--bg-panel);
   min-height: 0;
 }
 

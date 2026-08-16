@@ -69,6 +69,94 @@ function statusLabel(status) {
   }
 }
 
+function looksLikeHtml(contentType, body) {
+  if ((contentType || '').includes('text/html')) return true
+  const trimmed = (body || '').trimStart().toLowerCase()
+  return trimmed.startsWith('<!doctype') || trimmed.startsWith('<html')
+}
+
+function openHtmlInNewTab(html) {
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const win = window.open(url, '_blank')
+  if (win) {
+    try {
+      win.opener = null
+    } catch {
+      // ignore
+    }
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  return Boolean(win)
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+function readableErrorPage(status, body, contentType) {
+  if (looksLikeHtml(contentType, body)) return body
+
+  let content = body || '(empty response)'
+  if ((contentType || '').includes('application/json') || content.trim().startsWith('{') || content.trim().startsWith('[')) {
+    try {
+      content = JSON.stringify(JSON.parse(body), null, 2)
+    } catch {
+      // keep raw body
+    }
+  }
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>HTTP ${status}</title>
+  <style>
+    body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: #0b1220; color: #e8eef8; margin: 0; padding: 24px; }
+    h1 { font-size: 1.1rem; font-weight: 600; margin: 0 0 16px; color: #fecaca; }
+    pre { white-space: pre-wrap; word-break: break-word; margin: 0; line-height: 1.45; }
+  </style>
+</head>
+<body>
+  <h1>Server error (HTTP ${status})</h1>
+  <pre>${escapeHtml(content)}</pre>
+</body>
+</html>`
+}
+
+async function describeFetchError(res, fallback, { openTab = true } = {}) {
+  const contentType = res.headers.get('content-type') || ''
+  const body = await res.text()
+  const isServerError = res.status >= 500
+
+  if (isServerError && body) {
+    const html = readableErrorPage(res.status, body, contentType)
+    const opened = openTab ? openHtmlInNewTab(html) : false
+    return {
+      message: opened
+        ? `${fallback} (HTTP ${res.status}). Details opened in a new tab.`
+        : `${fallback} (HTTP ${res.status}). Click “View traceback” to inspect.`,
+      html,
+    }
+  }
+
+  let detail = body
+  try {
+    const json = JSON.parse(body)
+    detail = json.detail || json.error || JSON.stringify(json)
+  } catch {
+    detail = body.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300)
+  }
+
+  return {
+    message: detail ? `${fallback}: ${detail}` : `${fallback} (HTTP ${res.status})`,
+    html: null,
+  }
+}
+
 export default function App() {
   const [offcanvasOpen, setOffcanvasOpen] = useState(false)
   const [conversations, setConversations] = useState([])
@@ -85,7 +173,18 @@ export default function App() {
   const [loginError, setLoginError] = useState('')
   const [wsStatus, setWsStatus] = useState('disconnected')
   const [error, setError] = useState('')
+  const [errorHtml, setErrorHtml] = useState('')
   const [showJumpButton, setShowJumpButton] = useState(false)
+
+  const showError = (message, html = '') => {
+    setError(message)
+    setErrorHtml(html || '')
+  }
+
+  const clearError = () => {
+    setError('')
+    setErrorHtml('')
+  }
 
   const messagesRef = useRef(null)
   const convListRef = useRef(null)
@@ -111,14 +210,17 @@ export default function App() {
       if (res.ok) {
         const data = await res.json()
         setConversations(data)
-        setError('')
+        clearError()
       } else {
         setConversations([])
-        setError('Could not load conversations.')
+        const err = await describeFetchError(res, 'Could not load conversations', {
+          openTab: showLoading,
+        })
+        showError(err.message, err.html)
       }
     } catch {
       setConversations([])
-      setError('Network error while loading conversations.')
+      showError('Network error while loading conversations.')
     } finally {
       if (showLoading) setLoadingConversations(false)
       initialConvLoadRef.current = false
@@ -147,14 +249,17 @@ export default function App() {
             is_closed: data.is_closed ?? prev.is_closed,
           }
         })
-        setError('')
+        clearError()
       } else {
         setMessages([])
-        setError('Could not load messages.')
+        const err = await describeFetchError(res, 'Could not load messages', {
+          openTab: showLoading,
+        })
+        showError(err.message, err.html)
       }
     } catch {
       setMessages([])
-      setError('Network error while loading messages.')
+      showError('Network error while loading messages.')
     } finally {
       if (showLoading) setLoadingMessages(false)
     }
@@ -203,7 +308,7 @@ export default function App() {
 
       ws.onopen = () => {
         setWsStatus('connected')
-        setError('')
+        clearError()
         pingTimer = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: 'ping' }))
@@ -337,15 +442,16 @@ export default function App() {
       if (res.ok) {
         const data = await res.json()
         setText('')
+        clearError()
         if (data.message) {
           setMessages((prev) => upsertMessage(prev, data.message))
         }
       } else {
-        const err = await res.text()
-        setError(`Failed to send reply: ${err}`)
+        const err = await describeFetchError(res, 'Failed to send reply')
+        showError(err.message, err.html)
       }
     } catch {
-      setError('Network error while sending reply.')
+      showError('Network error while sending reply.')
     } finally {
       setSending(false)
     }
@@ -361,6 +467,11 @@ export default function App() {
         body: JSON.stringify({ username, password }),
       })
       if (!res.ok) {
+        if (res.status >= 500) {
+          const err = await describeFetchError(res, 'Login failed')
+          setLoginError(err.message)
+          return
+        }
         setLoginError('Invalid username or password.')
         return
       }
@@ -472,9 +583,20 @@ export default function App() {
       {error && (
         <div className="app-alert">
           <span>{error}</span>
-          <button type="button" className="btn-close-alert" onClick={() => setError('')}>
-            ×
-          </button>
+          <div className="app-alert-actions">
+            {errorHtml && (
+              <button
+                type="button"
+                className="btn btn-outline-light btn-sm"
+                onClick={() => openHtmlInNewTab(errorHtml)}
+              >
+                View traceback
+              </button>
+            )}
+            <button type="button" className="btn-close-alert" onClick={clearError}>
+              ×
+            </button>
+          </div>
         </div>
       )}
 
